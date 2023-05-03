@@ -15,8 +15,8 @@ def read_config():
     default_config = {
         'port': 8000,
         'timezone': 'Asia/Shanghai',
-        'font': 'font\\font.ttf',
-        'image': 'image\\sample.png',
+        'font': 'font/font.ttf',
+        'image': 'image/sample.jpg',
     }
 
     try:
@@ -39,12 +39,15 @@ def read_config():
     return config
 
 
-# 调用函数获取配置项
+# 获取配置项
 config = read_config()
 timezone = config["timezone"]
 image_path = config["image"]
 font_path = config["font"]
-PORT = config["port"]
+PORT = int(config["port"])
+
+# 打开图片
+img = Image.open(image_path)
 
 
 def gettimestr():
@@ -54,7 +57,7 @@ def gettimestr():
 
 
 def friendly_useragent(ip_address, os, browser):
-    # 操作系统映射表
+    # 操作系统映射
     os_map = {
         'Windows NT 10.0': 'Windows 10',
         'Windows NT 6.3': 'Windows 8.1',
@@ -67,7 +70,7 @@ def friendly_useragent(ip_address, os, browser):
         'Linux': 'Linux'
     }
 
-    # 浏览器映射表
+    # 浏览器映射
     browser_map = {
         'Chromium': 'Chromium内核的浏览器',
         'Chrome': 'Chrome浏览器',
@@ -80,7 +83,7 @@ def friendly_useragent(ip_address, os, browser):
         'UCBrowser': 'UC浏览器'
     }
 
-    # 解析操作系统和浏览器信息
+    # 解析OS和Browser信息
     friendly_os = os_map.get(os, os)
     friendly_browser = ''
     for b, v in browser_map.items():
@@ -92,22 +95,21 @@ def friendly_useragent(ip_address, os, browser):
 
     nowtime = gettimestr()
 
-    # 返回友好的字符串
+    # 返回格式化的字符串
     return f"\n欢迎来自{ip_address}的访客\n现在是{nowtime}\n您的操作系统是{friendly_os}\n您正在使用的是{friendly_browser}\n*以上内容仅供参考*"
 
 
 def imgfun(ip_address, os, browser, ):
-    # 加载图片
-    img = Image.open(image_path)
 
-    # 在图片上添加文字
+    # 图片上添加文字
     font = ImageFont.truetype(font_path, size=42)
     text = friendly_useragent(ip_address, os, browser)
     img_draw = ImageDraw.Draw(img)
-    # 绘制描边
+    # 文字描边
     outline_color = (255, 255, 255)
     outline_width = 2
-    w, h = img_draw.textsize(text, font=font)
+    bbox = img_draw.textbbox((0, 0), text, font=font)
+    w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
     x, y = 20, 20
     for xo in range(-outline_width, outline_width + 1, 2):
         for yo in range(-outline_width, outline_width + 1, 2):
@@ -116,7 +118,7 @@ def imgfun(ip_address, os, browser, ):
     # 绘制文本
     img_draw.text((x, y), text, fill=(0, 0, 0), font=font)
 
-    # 将图片转换为字节流
+    # 转换为字节流
     img_byte_array = BytesIO()
     img.save(img_byte_array, format='JPEG')
     img_byte_array = img_byte_array.getvalue()
@@ -126,14 +128,14 @@ def imgfun(ip_address, os, browser, ):
 
 class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     def get_client_ip(self):
-        # 检查X-Forwarded-For（XFF）头部以获取客户端IP
+        # 检查X-Forwarded-For获取客户端IP
         xff_header = self.headers.get('X-Forwarded-For')
         if xff_header:
-            # XFF头部通常包含客户端IP和代理服务器IP地址，最后一个地址为客户端真实IP
+            # 找到最后一个地址为客户端真实IP
             ip_list = xff_header.split(',')
             client_ip = ip_list[-1].strip()
         else:
-            # 如果XFF头部不存在，则使用客户端连接的IP地址
+            # 如果XFF头部不存在，则使用客户端连接的IP
             client_ip = self.client_address[0]
         if ':' in client_ip:
             # 将IPv6地址对象转换为字符串
@@ -153,19 +155,23 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             except:
                 ip_address = "1.14.5.14"
 
-            # 获取User-Agent信息
+            # 获取UA信息
             user_agent = self.headers.get('User-Agent')
             uaclass = parse(user_agent)
 
+            # 分析系统类型
             try:
                 os = uaclass.os.family
             except:
                 os = "Windows 98"
-            browser = uaclass.browser.family
-
-            browser_pattern = r'\b(?:Chrome|Chromium|Firefox|Safari|Opera|Edge|IE|Trident|YaBrowser|Maxthon|QQBrowser|UCBrowser)\b(?:\/[\d.]+)?'
-            browser_match = re.search(browser_pattern, browser)
-            browser = browser_match.group(0)
+            # 分析浏览器类型
+            try:
+                browser = uaclass.browser.family
+                browser_pattern = r'\b(?:Chrome|Chromium|Firefox|Safari|Opera|Edge|IE|Trident|YaBrowser|Maxthon|QQBrowser|UCBrowser)\b(?:\/[\d.]+)?'
+                browser_match = re.search(browser_pattern, browser)
+                browser = browser_match.group(0)
+            except:
+                browser = "不知道是什么\n反正肯定是Chromium内核"
 
             # 调用imgfun函数，生成图片
             img = imgfun(ip_address, os, browser)
@@ -182,7 +188,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 # 启动服务器
 with socketserver.TCPServer(("", PORT), MyHttpRequestHandler) as httpd:
-    print(f"Serving on port {PORT}")
+    print(f"HelloServer\nServing on port {PORT}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
