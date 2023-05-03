@@ -46,8 +46,8 @@ image_path = config["image"]
 font_path = config["font"]
 PORT = int(config["port"])
 
-# 打开图片
-img = Image.open(image_path)
+# 加载图片对象
+imgopen = Image.open(image_path)
 
 
 def gettimestr():
@@ -100,6 +100,7 @@ def friendly_useragent(ip_address, os, browser):
 
 
 def imgfun(ip_address, os, browser, ):
+    img = imgopen.copy()
 
     # 图片上添加文字
     font = ImageFont.truetype(font_path, size=42)
